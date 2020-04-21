@@ -13,12 +13,16 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 Adafruit_BLEMIDI midi(ble);
 
 #define CHANNEL 0  // MIDI channel number 1
+const int outPins[] = { 5, 6, 9, 10, 11, 12, 13 }; // Les pins utilisées en sortie (PWM).
+int valuePin[] = {0, 0, 0, 0, 0, 0, 0};
 
 bool isConnected = false;
 
 void setup() {
-  pinMode(A0, INPUT);
-  pinMode(5, OUTPUT);  
+  //pinMode(A0, INPUT);
+  for( int i=0 ; i < (sizeof(outPins)/sizeof(int)) ; i++) {
+    pinMode(outPins[i], OUTPUT); // Les outPins sont initialisées en OUTPUT.
+  }
   Serial.begin(115200);
 
   if ( !ble.begin(VERBOSE_MODE) ) {
@@ -33,7 +37,7 @@ void setup() {
       error(F("Couldn't factory reset"));
     }
   }
-  ble.println("AT+GAPDEVNAME=BLESync");
+  ble.println("AT+GAPDEVNAME=HapticGloveRight");
   ble.echo(false);
 
   Serial.println("Requesting Bluefruit info:");
@@ -57,8 +61,9 @@ void setup() {
 
 void loop() {
   ble.update(1);
-  int val = analogRead(A0);
-  midi.send(0xB0 | CHANNEL, 10, val); // Send the value you read from A0 using controller number 10 on MIDI defined earlier
+  //int val = analogRead(A0);
+  //midi.send(0xB0 | CHANNEL, 10, val); // Send the value you read from A0 using controller number 10 on MIDI defined earlier
+  decreasePins();
 }
 
 void MIDI_in_callback(uint16_t tstamp, uint8_t status, uint8_t CCnumber, uint8_t CCvalue)
@@ -67,7 +72,9 @@ void MIDI_in_callback(uint16_t tstamp, uint8_t status, uint8_t CCnumber, uint8_t
   Serial.print(CCnumber);
   Serial.print(", value: ");
   Serial.println(CCvalue);
-  midiWrite(CCvalue);
+  if(CCvalue<6 && CCvalue>-1){
+      midiWrite(CCvalue);
+  }
 }
 
 
@@ -83,7 +90,18 @@ void connected(void) {
 }
 
 void midiWrite(int midiIn){
-  analogWrite(5, midiIn);
+  //Serial.println(midiIn);
+  valuePin[midiIn] = 254;
+  analogWrite(outPins[midiIn], valuePin[midiIn]);
+}
+
+void decreasePins(){
+  for(int i=0 ; i < (sizeof(outPins)/sizeof(int)) ; i++) {
+    if(valuePin[i]>0){
+      valuePin[i] -= 2;
+      analogWrite(outPins[i], valuePin[i]);
+    }
+  }
 }
 
 void disconnected(void) {
